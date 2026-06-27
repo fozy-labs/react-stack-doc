@@ -91,6 +91,13 @@ const authRoute = createRoute({
         // лоадеры провайдят entity-API сюда, компоненты резолвят отсюда.
         return { scope: getAuthScope() };
     },
+    // Скоуп живёт ровно столько, сколько смонтирована приватная зона: при выходе
+    // из неё (logout либо переход на публичную страницу) роняем приватный кэш.
+    // Привязка к жизненному циклу роута, а не к auth-сайд-эффекту. onLeave
+    // срабатывает только на коммите навигации, не на preload.
+    onLeave: () => {
+        disposeAuthScope();
+    },
     component: AuthenticatedLayout,
 });
 
@@ -179,9 +186,8 @@ const authStore = inject(AuthStore);
 
 authStore.isAuthenticated$.obs.subscribe((value) => {
     if (value) return;
-    // Логаут: уничтожаем приватный скоуп со всем приватным кэшем, затем уводим
-    // на публичную главную.
-    disposeAuthScope();
+    // Логаут уводит на публичную главную. Очистку приватного скоупа делает
+    // onLeave приватного роута: уход с приватной зоны и есть сигнал к dispose.
     router.navigate({ to: '/' }).catch(console.error);
 });
 
