@@ -1,0 +1,1 @@
+export { rootScope } from './scopes';

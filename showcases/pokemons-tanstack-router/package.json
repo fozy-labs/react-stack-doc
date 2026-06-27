@@ -1,0 +1,38 @@
+{
+  "name": "showcase-pokemons-tanstack-router",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "ts-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fozy-labs/rx-toolkit": "^0.9.1",
+    "@fozy-labs/simplest-di": "0.4.0",
+    "@heroui/react": "2.8.5",
+    "@tanstack/react-router": "1.170.16",
+    "framer-motion": "12.42.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "rxjs": "7.8.2",
+    "zod": "4.1.11"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.17",
+    "@types/react": "19.2.4",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.7.0",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3",
+    "vite": "5.4.21",
+    "vite-tsconfig-paths": "5.1.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@heroui/shared-utils",
+      "esbuild"
+    ]
+  }
+}
