@@ -1,20 +1,22 @@
-import React from "react";
-import { DiScopeProvider } from '@fozy-labs/simplest-di';
+import { DiScopeProvider, type Scope } from '@fozy-labs/simplest-di';
+import { Outlet, useRouteContext } from '@tanstack/react-router';
 
 /**
  * Лейаут приватной зоны. Подмонтирует приватный скоуп в React-дерево через
- * `DiScopeProvider scope=`. Скоуп берём из `AuthStore` (тот же мемоизированный
- * экземпляр, что создал `beforeLoad`), поэтому компоненты резолвят приватные
- * сервисы из ровно того же скоупа, что и loader — кэш общий.
+ * `DiScopeProvider scope=`. Скоуп берём из контекста роута (его кладёт
+ * `beforeLoad` приватного роута) — тот же экземпляр, что видят лоадеры, поэтому
+ * компоненты резолвят приватные сервисы из ровно того же скоупа, что и loader
+ * (кэш общий).
  *
- * Скоуп получаем из AuthStore, а не из контекста роута, чтобы не импортировать
- * сам роут (иначе циклическая зависимость с router.tsx).
+ * Контекст читаем хук-ом `useRouteContext`, а не импортом самого роута, чтобы
+ * не словить циклическую зависимость с router.tsx.
  */
-export function AuthenticatedLayout({ children }: React.PropsWithChildren) {
+export function AuthenticatedLayout() {
+    const { scope } = useRouteContext({ strict: false }) as { scope: Scope };
 
     return (
         <DiScopeProvider scope={scope}>
-            {children}
+            <Outlet />
         </DiScopeProvider>
     );
 }

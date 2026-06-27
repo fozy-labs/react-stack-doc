@@ -8,7 +8,8 @@ import {
 import { inject, type Scope } from '@fozy-labs/simplest-di';
 
 import { AuthStore } from '@/features/auth';
-import { rootScope } from '@/di';
+import { rootScope, createAuthScope } from '@/di';
+import { POKEMON_PAGE_LIMIT } from '@/shared/lib';
 
 import { RootLayout } from './RootLayout';
 import { AuthenticatedLayout } from './AuthenticatedLayout';
@@ -25,6 +26,27 @@ import { AuthenticatedLayout } from './AuthenticatedLayout';
  */
 export interface RouterContext {
     scope: Scope;
+}
+
+/**
+ * Жизненный цикл приватного скоупа живёт здесь, в роутер-слое (а не в сторе):
+ * скоуп — деталь композиции/маршрутизации, стор отвечает только за сессию.
+ * Создаётся лениво при первом входе в приватную зону и уничтожается при
+ * логауте — вместе с ним умирает весь приватный кэш (покемоны, посты).
+ */
+let authScope: Scope | null = null;
+
+function getAuthScope(): Scope {
+    if (!authScope) {
+        authScope = createAuthScope(rootScope);
+        authScope.init();
+    }
+    return authScope;
+}
+
+function disposeAuthScope() {
+    authScope?.dispose();
+    authScope = null;
 }
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
@@ -58,13 +80,16 @@ const loginRoute = createRoute({
 const authRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: 'authenticated',
-    beforeLoad: ({ context }) => {
+    beforeLoad: () => {
         const auth = inject(AuthStore);
 
         if (!auth.isAuthenticated$.peek()) {
             throw redirect({ to: '/login' });
         }
-        return { scope: context.scope };
+
+        // Приватный скоуп подменяет публичный для всего поддерева: дочерние
+        // лоадеры провайдят entity-API сюда, компоненты резолвят отсюда.
+        return { scope: getAuthScope() };
     },
     component: AuthenticatedLayout,
 });
@@ -76,9 +101,17 @@ const pokemonListRoute = createRoute({
     validateSearch: (search: Record<string, unknown>): { page?: number } => ({
         page: Number(search.page ?? 1) || 1,
     }),
-    loader: async ({ context }) => {
+    // loaderDeps прокидывает page в loader, чтобы prefetch шёл по нужной странице
+    // и перезапускался при её смене.
+    loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
+    loader: async ({ context, deps }) => {
         const { PokemonApi } = await import('@/entities/pokemon');
-        inject.provide(PokemonApi, context.scope);
+        const api = inject.provide(PokemonApi, context.scope);
+
+        // prefetch: запускаем загрузку страницы и НЕ ждём её — экран рисует
+        // скелетон/данные через useResource, переход не гейтится.
+        const offset = (deps.page - 1) * POKEMON_PAGE_LIMIT;
+        api.list.trigger({ offset, limit: POKEMON_PAGE_LIMIT });
     },
     component: lazyRouteComponent(() => import('@/pages/pokemon'), 'PokemonListPage'),
 });
@@ -86,9 +119,12 @@ const pokemonListRoute = createRoute({
 const pokemonDetailRoute = createRoute({
     getParentRoute: () => authRoute,
     path: 'pokemon/$id',
-    loader: async ({ context }) => {
+    loader: async ({ context, params }) => {
         const { PokemonApi } = await import('@/entities/pokemon');
-        inject.provide(PokemonApi, context.scope);
+        const api = inject.provide(PokemonApi, context.scope);
+
+        // prefetch: не блокирует, useResource подхватит уже идущий запрос.
+        api.detail.trigger(params.id);
     },
     component: lazyRouteComponent(() => import('@/pages/pokemon-detail'), 'PokemonDetailPage'),
 });
@@ -98,7 +134,10 @@ const postsListRoute = createRoute({
     path: 'posts',
     loader: async ({ context }) => {
         const { PostApi } = await import('@/entities/post');
-        inject.provide(PostApi, context.scope);
+        const api = inject.provide(PostApi, context.scope);
+
+        // prefetch: не блокирует.
+        api.list.trigger(undefined);
     },
     component: lazyRouteComponent(() => import('@/pages/posts'), 'PostsListPage'),
 });
@@ -106,9 +145,12 @@ const postsListRoute = createRoute({
 const postDetailRoute = createRoute({
     getParentRoute: () => authRoute,
     path: 'posts/$id',
-    loader: async ({ context }) => {
+    loader: async ({ context, params }) => {
         const { PostApi } = await import('@/entities/post');
-        inject.provide(PostApi, context.scope);
+        const api = inject.provide(PostApi, context.scope);
+
+        // prefetch: не блокирует.
+        api.detail.trigger(Number(params.id));
     },
     component: lazyRouteComponent(() => import('@/pages/post-detail'), 'PostDetailPage'),
 });
@@ -136,7 +178,10 @@ export const router = createRouter({
 const authStore = inject(AuthStore);
 
 authStore.isAuthenticated$.obs.subscribe((value) => {
-    if (value) return
+    if (value) return;
+    // Логаут: уничтожаем приватный скоуп со всем приватным кэшем, затем уводим
+    // на публичную главную.
+    disposeAuthScope();
     router.navigate({ to: '/' }).catch(console.error);
 });
 

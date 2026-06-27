@@ -1,5 +1,4 @@
-import { injectable, Scope } from '@fozy-labs/simplest-di';
-import { Subject } from 'rxjs';
+import { injectable } from '@fozy-labs/simplest-di';
 import { LocalSignal, Signal } from '@fozy-labs/rx-toolkit';
 import type { User } from '@/entities/user';
 import { findUserByEmail } from './auth.utils';
@@ -7,10 +6,9 @@ import { findUserByEmail } from './auth.utils';
 /**
  * SINGLETON: личность и время жизни сессии живут на уровне приложения.
  *
- * Помимо собственно авторизации, `AuthStore` владеет жизненным циклом
- * приватного скоупа: создаёт его лениво при входе в приватную зону и
- * уничтожает при логауте. Так весь приватный кэш (покемоны, посты)
- * привязан к сессии и гарантированно убирается при выходе.
+ * Стор отвечает только за сессию (кто вошёл, вошёл ли вообще). Жизненный цикл
+ * приватного DI-скоупа — деталь маршрутизации и живёт в роутер-слое
+ * (`app/router.tsx`), а не здесь.
  */
 @injectable('SINGLETON')
 export class AuthStore {
