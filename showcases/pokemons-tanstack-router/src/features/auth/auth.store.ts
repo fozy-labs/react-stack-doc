@@ -25,28 +25,6 @@ export class AuthStore {
         key: 'isAuthenticated',
     });
 
-    private _privateScope: Scope | null = null;
-
-    /**
-     * Лениво создаёт приватный скоуп как дочерний от переданного родителя
-     * (rootScope). Мемоизируется, чтобы навигации внутри приватной зоны не
-     * плодили новые скоупы. Родитель приходит явно из context роутера — не из
-     * `getCurrentScope()`, что безопасно для async-loader'ов.
-     */
-    getPrivateScope(parent: Scope): Scope {
-        if (!this._privateScope) {
-            const scope = new Scope(parent, 'private');
-            // Scope должен поддерживать lifecycle-колбэки (init$/destroyed$), иначе
-            // inject() для SCOPED-сервиса бросает «does not support destruction
-            // callbacks». DiScopeProvider/useScope делают это сами; ручной скоуп — нет.
-            scope.init$ = new Subject();
-            scope.destroyed$ = new Subject();
-            scope.init();
-            this._privateScope = scope;
-        }
-        return this._privateScope;
-    }
-
     login(email: string): { ok: boolean; error?: string } {
         const user = findUserByEmail(email);
 
@@ -59,11 +37,6 @@ export class AuthStore {
     }
 
     logout = () => {
-        // Уничтожаем приватный скоуп: его SCOPED-сервисы (PokemonApi/PostApi с их
-        // кэшами) теряют ссылки и собираются GC. Следующий вход создаст свежий
-        // скоуп с чистым кэшем — приватные данные не переживают логаут.
-        this._privateScope?.dispose();
-        this._privateScope = null;
         this.currentUser$.clear();
     };
 }

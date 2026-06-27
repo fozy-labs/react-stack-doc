@@ -15,12 +15,10 @@ export function Header() {
     const authenticated = useSignal(authStore.isAuthenticated$);
     const user = useSignal(authStore.currentUser$);
     const theme = useSignal(themeStore.theme$);
-    const navigate = useNavigate();
     const { pathname } = useLocation();
 
     const handleLogout = () => {
         authStore.logout();
-        navigate('/login');
     };
 
     return (

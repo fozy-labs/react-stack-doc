@@ -1,7 +1,5 @@
-import { inject, DiScopeProvider } from '@fozy-labs/simplest-di';
-import { Outlet } from '@tanstack/react-router';
-import { AuthStore } from '@/features/auth';
-import { rootScope } from '@/di';
+import React from "react";
+import { DiScopeProvider } from '@fozy-labs/simplest-di';
 
 /**
  * Лейаут приватной зоны. Подмонтирует приватный скоуп в React-дерево через
@@ -12,12 +10,11 @@ import { rootScope } from '@/di';
  * Скоуп получаем из AuthStore, а не из контекста роута, чтобы не импортировать
  * сам роут (иначе циклическая зависимость с router.tsx).
  */
-export function AuthenticatedLayout() {
-    const scope = inject(AuthStore).getPrivateScope(rootScope);
+export function AuthenticatedLayout({ children }: React.PropsWithChildren) {
 
     return (
         <DiScopeProvider scope={scope}>
-            <Outlet />
+            {children}
         </DiScopeProvider>
     );
 }

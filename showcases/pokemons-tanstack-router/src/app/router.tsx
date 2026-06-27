@@ -41,8 +41,10 @@ const loginRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: 'login',
     beforeLoad: () => {
+        const authStore = inject(AuthStore);
+
         // Гость-онли: уже авторизованного уводим на главную.
-        if (inject(AuthStore).isAuthenticated$.peek()) {
+        if (authStore.isAuthenticated$.peek()) {
             throw redirect({ to: '/' });
         }
     },
@@ -62,9 +64,7 @@ const authRoute = createRoute({
         if (!auth.isAuthenticated$.peek()) {
             throw redirect({ to: '/login' });
         }
-
-        // Подменяем scope зоны: приватный скоуп (дочерний от rootScope).
-        return { scope: auth.getPrivateScope(context.scope) };
+        return { scope: context.scope };
     },
     component: AuthenticatedLayout,
 });
@@ -131,6 +131,13 @@ export const router = createRouter({
     // «Свежесть» данных принадлежит rx-toolkit, а не роутеру — отдаём её кэшу.
     defaultPreloadStaleTime: 0,
     scrollRestoration: true,
+});
+
+const authStore = inject(AuthStore);
+
+authStore.isAuthenticated$.obs.subscribe((value) => {
+    if (value) return
+    router.navigate({ to: '/' }).catch(console.error);
 });
 
 declare module '@tanstack/react-router' {
