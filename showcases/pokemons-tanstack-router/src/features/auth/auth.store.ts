@@ -8,7 +8,7 @@ import { findUserByEmail } from './auth.utils';
  *
  * Стор отвечает только за сессию (кто вошёл, вошёл ли вообще). Жизненный цикл
  * приватного DI-скоупа — деталь маршрутизации и живёт в роутер-слое
- * (`app/router.tsx`), а не здесь.
+ * (`pages/root.router.ts`), а не здесь.
  */
 @injectable('SINGLETON')
 export class AuthStore {

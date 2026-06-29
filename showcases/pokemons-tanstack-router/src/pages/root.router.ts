@@ -11,8 +11,8 @@ import { AuthStore } from '@/features/auth';
 import { rootScope, scopeStore } from '@/di';
 import { POKEMON_PAGE_LIMIT } from '@/shared/lib';
 
-import { RootLayout } from './RootLayout';
-import { AuthenticatedLayout } from './AuthenticatedLayout';
+import { RootLayout } from '@/app/RootLayout';
+import { AuthenticatedLayout } from '@/app/AuthenticatedLayout';
 
 /**
  * В context кладём ТОЛЬКО scope зоны — никаких статических импортов дата-слоя.
