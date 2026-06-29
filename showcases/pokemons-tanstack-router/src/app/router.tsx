@@ -134,6 +134,11 @@ const pokemonListRoute = createRoute({
 const pokemonDetailRoute = createRoute({
     getParentRoute: () => privateRoute,
     path: 'pokemon/$id',
+    // page (необязателен) прокидывается из списка, чтобы «Back to list» вернул
+    // на ту же страницу пагинации. Переживает перезагрузку и прямой заход по URL.
+    validateSearch: (search: Record<string, unknown>): { page?: number } => (
+        search.page == null ? {} : { page: Number(search.page) || 1 }
+    ),
     loader: async ({ context, params }) => {
         const { PokemonApi } = await import('@/entities/pokemon');
         const api = inject.provide(PokemonApi, context.scope);

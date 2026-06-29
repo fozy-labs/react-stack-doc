@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import {
     Card, CardBody, Chip, Progress, Skeleton, Button, Image,
 } from '@heroui/react';
@@ -29,6 +29,10 @@ const TYPE_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'success
 
 export function PokemonDetailPage() {
     const { id } = useParams({ strict: false }) as { id?: string };
+    // page прилетает из списка через search; кнопка «Back» возвращает на неё.
+    const { page } = useSearch({ strict: false }) as { page?: number };
+    const navigate = useNavigate();
+    const backToList = () => navigate({ to: '/pokemon', search: { page: page ?? 1 } });
     const pokemonApi = inject(PokemonApi);
     const query = pokemonApi.detail.useResource(id ?? SKIP);
 
@@ -36,7 +40,7 @@ export function PokemonDetailPage() {
         return (
             <div className="text-center py-20">
                 <p className="text-danger text-lg">No Pokemon specified</p>
-                <Button as={Link} to="/pokemon" variant="light" className="mt-4">← Back</Button>
+                <Button onPress={backToList} variant="light" className="mt-4">← Back</Button>
             </div>
         );
     }
@@ -61,7 +65,7 @@ export function PokemonDetailPage() {
         return (
             <div className="text-center py-20">
                 <p className="text-danger text-lg">Pokemon not found</p>
-                <Button as={Link} to="/pokemon" variant="light" className="mt-4">← Back</Button>
+                <Button onPress={backToList} variant="light" className="mt-4">← Back</Button>
             </div>
         );
     }
@@ -71,7 +75,7 @@ export function PokemonDetailPage() {
 
     return (
         <div className="space-y-6">
-            <Button as={Link} to="/pokemon" variant="light" size="sm">← Back to list</Button>
+            <Button onPress={backToList} variant="light" size="sm">← Back to list</Button>
 
             <div className="flex flex-col sm:flex-row gap-8">
                 <Card shadow="sm" className="sm:w-72 sm:flex-none">

@@ -75,6 +75,7 @@ export function PokemonListPage() {
                         key={pokemon.name}
                         to="/pokemon/$id"
                         params={{ id: String(pokemon.id) }}
+                        search={{ page: currentPage }}
                         className="block transition-transform hover:scale-[1.03]"
                     >
                         <Card shadow="sm">
