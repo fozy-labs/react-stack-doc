@@ -8,7 +8,7 @@ import {
 import { inject, type Scope } from '@fozy-labs/simplest-di';
 
 import { AuthStore } from '@/features/auth';
-import { rootScope, createAuthScope } from '@/di';
+import { rootScope, scopeStore } from '@/di';
 import { POKEMON_PAGE_LIMIT } from '@/shared/lib';
 
 import { RootLayout } from './RootLayout';
@@ -28,35 +28,27 @@ export interface RouterContext {
     scope: Scope;
 }
 
-/**
- * Жизненный цикл приватного скоупа живёт здесь, в роутер-слое (а не в сторе):
- * скоуп — деталь композиции/маршрутизации, стор отвечает только за сессию.
- * Создаётся лениво при первом входе в приватную зону и уничтожается при
- * логауте — вместе с ним умирает весь приватный кэш (покемоны, посты).
- */
-let authScope: Scope | null = null;
-
-function getAuthScope(): Scope {
-    if (!authScope) {
-        authScope = createAuthScope(rootScope);
-        authScope.init();
-    }
-    return authScope;
-}
-
-function disposeAuthScope() {
-    authScope?.dispose();
-    authScope = null;
-}
-
 const rootRoute = createRootRouteWithContext<RouterContext>()({
     component: RootLayout,
+    onEnter: () => {
+        rootScope.init();
+    }
 });
 
-const homeRoute = createRoute({
+// Публичный лендинг на `/`: гость и состояние «после логаута». Авторизованного
+// уводим на его приватную главную `/home`, чтобы он не оказывался на публичном
+// `/` вне приватной зоны (иначе выход из зоны уронил бы скоуп через onLeave).
+const welcomeRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/',
-    component: lazyRouteComponent(() => import('@/pages/home'), 'HomePage'),
+    beforeLoad: () => {
+        const authStore = inject(AuthStore);
+
+        if (authStore.isAuthenticated$.peek()) {
+            throw redirect({ to: '/home' });
+        }
+    },
+    component: lazyRouteComponent(() => import('@/pages/welcome'), 'WelcomePage'),
 });
 
 const loginRoute = createRoute({
@@ -65,44 +57,60 @@ const loginRoute = createRoute({
     beforeLoad: () => {
         const authStore = inject(AuthStore);
 
-        // Гость-онли: уже авторизованного уводим на главную.
+        // Гость-онли: уже авторизованного уводим на приватную главную.
         if (authStore.isAuthenticated$.peek()) {
-            throw redirect({ to: '/' });
+            throw redirect({ to: '/home' });
         }
     },
     component: lazyRouteComponent(() => import('@/pages/login'), 'LoginPage'),
 });
 
+// Ключ priviate скоупа в сторе.
+const PRIVATE_SCOPE_KEY = 'authenticated';
+
 /**
  * Pathless layout приватной зоны (id вместо path). Здесь живёт auth-гард и
- * подмена scope: для всего поддерева context.scope становится приватным.
+ * подмена scope: для всего поддерева context.scope становится приватным —
+ * зонным скоупом из стора, общим для лоадеров и компонентов.
  */
-const authRoute = createRoute({
-    getParentRoute: () => rootRoute,
+const privateRoute = createRoute({
     id: 'authenticated',
-    beforeLoad: () => {
+    getParentRoute: () => rootRoute,
+    beforeLoad() {
         const auth = inject(AuthStore);
 
         if (!auth.isAuthenticated$.peek()) {
             throw redirect({ to: '/login' });
         }
 
-        // Приватный скоуп подменяет публичный для всего поддерева: дочерние
-        // лоадеры провайдят entity-API сюда, компоненты резолвят отсюда.
-        return { scope: getAuthScope() };
+        // beforeLoad бежит на каждую навигацию внутри зоны, поэтому `acquire`
+        // (взять-или-создать) возвращает ОДИН и тот же скоуп зоны — без
+        // пересоздания на каждом переходе.
+        return { scope: scopeStore.acquire(PRIVATE_SCOPE_KEY) };
     },
-    // Скоуп живёт ровно столько, сколько смонтирована приватная зона: при выходе
-    // из неё (logout либо переход на публичную страницу) роняем приватный кэш.
-    // Привязка к жизненному циклу роута, а не к auth-сайд-эффекту. onLeave
-    // срабатывает только на коммите навигации, не на preload.
-    onLeave: () => {
-        disposeAuthScope();
+    // init/dispose привязаны к реальному входу/выходу зоны (onEnter/onLeave —
+    // по разу), а не к beforeLoad. На выходе скоуп каскадно гаснет и удаляется
+    // из стора; повторный вход создаст свежий.
+    onEnter() {
+        scopeStore.init(PRIVATE_SCOPE_KEY);
+    },
+    onLeave() {
+        scopeStore.dispose(PRIVATE_SCOPE_KEY);
     },
     component: AuthenticatedLayout,
 });
 
+// Приватная главная (дашборд). Внутри `privateRoute`, поэтому переход на неё «домой»
+// не покидает приватную зону и не роняет скоуп. Лоадер не нужен — данные разделов
+// грузятся на своих роутах.
+const homeRoute = createRoute({
+    getParentRoute: () => privateRoute,
+    path: 'home',
+    component: lazyRouteComponent(() => import('@/pages/home'), 'HomePage'),
+});
+
 const pokemonListRoute = createRoute({
-    getParentRoute: () => authRoute,
+    getParentRoute: () => privateRoute,
     path: 'pokemon',
     // page помечен optional, чтобы ссылки на /pokemon не требовали search.
     validateSearch: (search: Record<string, unknown>): { page?: number } => ({
@@ -124,7 +132,7 @@ const pokemonListRoute = createRoute({
 });
 
 const pokemonDetailRoute = createRoute({
-    getParentRoute: () => authRoute,
+    getParentRoute: () => privateRoute,
     path: 'pokemon/$id',
     loader: async ({ context, params }) => {
         const { PokemonApi } = await import('@/entities/pokemon');
@@ -137,7 +145,7 @@ const pokemonDetailRoute = createRoute({
 });
 
 const postsListRoute = createRoute({
-    getParentRoute: () => authRoute,
+    getParentRoute: () => privateRoute,
     path: 'posts',
     loader: async ({ context }) => {
         const { PostApi } = await import('@/entities/post');
@@ -150,7 +158,7 @@ const postsListRoute = createRoute({
 });
 
 const postDetailRoute = createRoute({
-    getParentRoute: () => authRoute,
+    getParentRoute: () => privateRoute,
     path: 'posts/$id',
     loader: async ({ context, params }) => {
         const { PostApi } = await import('@/entities/post');
@@ -163,9 +171,10 @@ const postDetailRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-    homeRoute,
+    welcomeRoute,
     loginRoute,
-    authRoute.addChildren([
+    privateRoute.addChildren([
+        homeRoute,
         pokemonListRoute,
         pokemonDetailRoute,
         postsListRoute,
@@ -186,8 +195,7 @@ const authStore = inject(AuthStore);
 
 authStore.isAuthenticated$.obs.subscribe((value) => {
     if (value) return;
-    // Логаут уводит на публичную главную. Очистку приватного скоупа делает
-    // onLeave приватного роута: уход с приватной зоны и есть сигнал к dispose.
+    // Логаут уводит на публичный лендинг `/`.
     router.navigate({ to: '/' }).catch(console.error);
 });
 

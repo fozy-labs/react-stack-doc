@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@fozy-labs/rx-toolkit": "^0.9.1",
-    "@fozy-labs/simplest-di": "0.4.0",
+    "@fozy-labs/simplest-di": "0.5.1",
     "@heroui/react": "2.8.5",
     "@tanstack/react-router": "1.170.16",
     "framer-motion": "12.42.0",

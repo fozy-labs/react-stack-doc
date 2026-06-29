@@ -1,1 +1,1 @@
-export { rootScope, createAuthScope } from './scopes';
+export { rootScope, scopeStore } from './scopes';

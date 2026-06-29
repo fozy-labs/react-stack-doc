@@ -24,7 +24,7 @@ export function LoginForm() {
             setError(result.error ?? 'Login failed');
             return;
         }
-        navigate({ to: '/' });
+        navigate({ to: '/home' });
     }, [authStore, email, navigate]);
 
     return (

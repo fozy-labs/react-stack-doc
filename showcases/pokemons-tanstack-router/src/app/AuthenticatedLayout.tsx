@@ -14,6 +14,8 @@ import { Outlet, useRouteContext } from '@tanstack/react-router';
 export function AuthenticatedLayout() {
     const { scope } = useRouteContext({ strict: false }) as { scope: Scope };
 
+    console.log('[AuthenticatedLayout]');
+
     return (
         <DiScopeProvider scope={scope}>
             <Outlet />

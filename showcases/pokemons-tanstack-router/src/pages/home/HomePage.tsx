@@ -1,27 +1,17 @@
 import { useSignal } from '@fozy-labs/rx-toolkit';
 import { inject } from '@fozy-labs/simplest-di';
-import { Card, CardBody, Button, Chip } from '@heroui/react';
+import { Card, CardBody, Chip } from '@heroui/react';
 import { Link } from '@tanstack/react-router';
 import { AuthStore } from '@/features/auth';
 
+/**
+ * Приватная главная (дашборд) на `/home` — внутри приватной зоны `authRoute`.
+ * Сюда попадает только авторизованный (гард `authRoute.beforeLoad`), поэтому
+ * проверка сессии не нужна: гостю показывает лендинг публичный роут `/`.
+ */
 export function HomePage() {
     const authStore = inject(AuthStore);
-    const authenticated = useSignal(authStore.isAuthenticated$);
     const user = useSignal(authStore.currentUser$);
-
-    if (!authenticated) {
-        return (
-            <div className="flex flex-col items-center justify-center gap-6 py-20">
-                <h1 className="text-4xl font-bold text-center">RX Toolkit × TanStack Router</h1>
-                <p className="text-lg text-default-500 text-center max-w-lg">
-                    A demo app showcasing reactive state management with Signals, Resource queries, Commands, and DI — wired into TanStack Router loaders and scopes.
-                </p>
-                <Button as={Link} to="/login" color="primary" size="lg">
-                    Get Started
-                </Button>
-            </div>
-        );
-    }
 
     return (
         <div className="space-y-8">

@@ -5,7 +5,7 @@ import {
     Button, Switch, Avatar, Dropdown, DropdownTrigger,
     DropdownMenu, DropdownItem,
 } from '@heroui/react';
-import { Link, useNavigate, useLocation } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { AuthStore } from '@/features/auth';
 import { ThemeStore } from '@/shared/lib';
 
@@ -15,18 +15,19 @@ export function Header() {
     const authenticated = useSignal(authStore.isAuthenticated$);
     const user = useSignal(authStore.currentUser$);
     const theme = useSignal(themeStore.theme$);
-    const navigate = useNavigate();
     const { pathname } = useLocation();
 
+    // Только гасим сессию: увод на публичный лендинг `/` делает глобальная
+    // логаут-подписка в router.tsx (единый источник истины), она же триггерит
+    // onLeave приватной зоны → dispose скоупа.
     const handleLogout = () => {
         authStore.logout();
-        navigate({ to: '/login' });
     };
 
     return (
         <Navbar maxWidth="xl" isBordered>
             <NavbarBrand>
-                <Link to="/" className="font-bold text-lg text-foreground">
+                <Link to={authenticated ? '/home' : '/'} className="font-bold text-lg text-foreground">
                     🧪 RX Toolkit
                 </Link>
             </NavbarBrand>
